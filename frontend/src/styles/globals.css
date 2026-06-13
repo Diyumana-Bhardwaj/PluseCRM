@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    background: #13151A;
+    color: #F9FAFB;
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  input:focus { outline: none; }
+  button { font-family: inherit; }
+}
