@@ -1,19 +1,3 @@
-"""
-kmeans.py — Pure KMeans clustering on RFM features.
-
-Responsibilities:
-  - Fit KMeans on scaled RFM scores.
-  - Assign each customer a cluster_id.
-  - Compute per-cluster centroids (inverse-transformed to 1–5 scale).
-  - Compute a confidence score for each customer (normalised distance
-    to their assigned centroid, 0–100).
-  - Produce a stable cluster ranking by composite business-value score
-    so cluster rank 0 always represents the highest-value segment.
-
-Does NOT call any external API.
-Does NOT assign colours, persona labels, or descriptions.
-"""
-
 import logging
 import numpy as np
 import pandas as pd
@@ -26,24 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 def _business_value(r: float, f: float, m: float) -> float:
-    """
-    Composite score used to rank clusters by business value.
-    Weights: Monetary 50 %, Frequency 30 %, Recency 20 %.
-    Higher = more valuable segment.
-    """
     w = RFM_WEIGHTS
     return w["monetary"] * m + w["frequency"] * f + w["recency"] * r
 
 
 def _compute_confidence(X_scaled: np.ndarray, labels: np.ndarray,
                         centers: np.ndarray) -> np.ndarray:
-    """
-    Return a confidence score in [0, 100] for each sample.
-
-    Score = 100 × (1 − normalised_distance_to_centroid).
-    Normalised distance: euclidean distance / max distance in that cluster,
-    so the furthest point gets 0 % and the closest gets 100 %.
-    """
     confidences = np.zeros(len(X_scaled))
     for cid in np.unique(labels):
         mask = labels == cid
@@ -58,24 +30,7 @@ def run_kmeans(
     n_clusters: int = 5,
     random_state: int = 42,
 ) -> tuple[list[dict], list[dict]]:
-    """
-    Cluster customers by RFM scores.
 
-    Returns
-    -------
-    customers : list[dict]
-        Original dicts enriched with:
-          cluster_id  (int)   — stable rank-based id (0 = highest value)
-          confidence  (float) — 0–100, how strongly the customer belongs
-
-    cluster_meta : list[dict]
-        One entry per cluster, sorted by cluster_id (ascending value rank):
-          cluster_id   (int)
-          centroid_r   (float) — avg recency score for this cluster
-          centroid_f   (float)
-          centroid_m   (float)
-          value_score  (float) — composite business-value score
-    """
     if not customers:
         return customers, []
 
@@ -109,8 +64,6 @@ def run_kmeans(
 
     df["cluster_id"] = ranked_labels
     df["confidence"] = confidences
-
-    # ── Build cluster metadata ────────────────────────────────────────────────
     cluster_meta = []
     for rank in range(k):
         raw_id = sorted_raw_ids[rank]

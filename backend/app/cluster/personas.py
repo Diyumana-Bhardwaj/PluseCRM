@@ -9,11 +9,9 @@ def fallback_label(avg_r: float, avg_f: float, avg_m: float) -> str:
         return "Loyal Regular"
 
     if avg_r < 3 and avg_f >= 3:
-        # Ordered frequently before but has gone quiet — at risk of churning
         return "At Risk"
 
     if avg_r >= 4 and avg_f < 2:
-        # Placed a first order recently; loyalty not yet established
         return "New Explorer"
 
     if avg_r < 2 and avg_f < 2 and avg_m < 2:

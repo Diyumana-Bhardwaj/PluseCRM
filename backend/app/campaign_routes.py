@@ -66,8 +66,6 @@ def _parse_json_block(text: str) -> dict:
         return {}
 
 
-# ── Channel benchmarks (realistic restaurant / food delivery) ─────────────────
-
 _CHANNEL_DELIVERY: dict[str, float] = {
     "WhatsApp": 0.97,
     "SMS":      0.97,
@@ -88,8 +86,6 @@ _CHANNEL_CTR: dict[str, float] = {
     "Email":    0.05,
     "RCS":      0.18,
 }
-
-# ── Persona-based post-click conversion rates ─────────────────────────────────
 
 _PERSONA_CONVERSION: dict[str, float] = {
     "Premium Diner":   0.28,
@@ -236,13 +232,9 @@ class CampaignResponse(BaseModel):
     queuedAt:   str
 
 
-# ── In-memory store ───────────────────────────────────────────────────────────
-
 _campaign_store: list[dict] = []
 _id_counter = 0
 
-
-# ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.post("/generate-strategy", response_model=StrategyResponse)
 async def generate_strategy(req: StrategyRequest):

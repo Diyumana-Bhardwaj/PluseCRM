@@ -1,22 +1,13 @@
-/**
- * Campaigns.jsx — PulseCRM Campaign Builder
- *
- * Flow:
- *   Audience Summary → AI Strategy → Review/Edit Strategy
- *   → AI Message → Live Preview → Config → Estimated Results → Launch
- *   → Live Performance (navigates away)
- *
- * Backend calls (all via VITE_API_URL env var):
- *   POST /api/generate-strategy
- *   POST /api/generate-message
- *   POST /api/campaign
- */
-
 import { useState, useEffect, useRef } from "react";
 import { useCRM } from "../../context/CRMContext";
 import PhonePreview from "./components/PhonePreview";
-
-// ── Icon helper ───────────────────────────────────────────────────────────────
+import ConfidenceBadge from "./components/confidenceBadge";
+import { SIM_STAGES, IC, CHANNELS, TONES } from "./dummyData/CampaignData";
+import LaunchSimModal from "./components/LaunchSimModal";
+import SectionLabel from "./components/SectionLabel";
+import Divider from "./components/Dvider";
+import Spinner from "./components/Spinner";
+import StatCard from "./components/StatCard";
 
 function Icon({ d, className = "w-4 h-4" }) {
   return (
@@ -27,164 +18,13 @@ function Icon({ d, className = "w-4 h-4" }) {
   );
 }
 
-const IC = {
-  upload:  "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12",
-  rocket:  "M15.59 14.37a6 6 0 01-5.84 7.38v-4.82m5.84-2.56a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.63 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.82m2.56-5.84a14.98 14.98 0 00-2.58 5.841",
-  sparkle: "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z",
-  check:   "M5 13l4 4L19 7",
-  arrowL:  "M15 19l-7-7 7-7",
-  edit:    "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
-  refresh: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
-  image:   "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z",
-  link:    "M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1",
-  tag:     "M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z",
-  clock:   "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
-  users:   "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z",
-  chart:   "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
-  calendar:"M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
-};
 
-const CHANNELS  = ["WhatsApp", "SMS", "Email", "RCS"];
-const TONES     = ["Friendly", "Urgent", "Exclusive", "Playful", "Professional"];
 const API_BASE  = import.meta.env.VITE_API_URL ?? "";
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, sub }) {
-  return (
-    <div className="bg-[#FAF8F5] rounded-xl px-3 py-2.5 border border-black/[0.05]">
-      <p className="text-[10px] text-[#9C9691] mb-0.5">{label}</p>
-      <p className="text-[15px] font-bold text-[#1A1410]">{value}</p>
-      {sub && <p className="text-[10px] text-[#9C9691]">{sub}</p>}
-    </div>
-  );
-}
-
-// ── Section heading ───────────────────────────────────────────────────────────
-
-function SectionLabel({ children }) {
-  return (
-    <p className="text-[10px] font-semibold text-[#9C9691] uppercase tracking-[0.6px] mb-2">
-      {children}
-    </p>
-  );
-}
-
-function Divider() {
-  return <div className="h-px bg-black/[0.06]" />;
-}
-
-// ── Spinner ───────────────────────────────────────────────────────────────────
-
-function Spinner({ size = "w-3.5 h-3.5", color = "border-[#FF6B35]" }) {
-  return (
-    <span className={`${size} rounded-full border-2 border-black/10 border-t-current ${color} animate-spin`} />
-  );
-}
-
-// ── Confidence badge ──────────────────────────────────────────────────────────
-
-function ConfidenceBadge({ value }) {
-  const color =
-    value >= 85 ? "bg-green-50 text-green-700 border-green-200" :
-    value >= 70 ? "bg-amber-50 text-amber-700 border-amber-200" :
-                  "bg-red-50   text-red-700   border-red-200";
-  return (
-    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${color}`}>
-      {value}% confidence
-    </span>
-  );
-}
-
-const SIM_STAGES = [
-  { label: "Validating audience",       icon: "👥" },
-  { label: "Personalising messages",    icon: "✍️" },
-  { label: "Connecting to channel",     icon: "📡" },
-  { label: "Queuing delivery",          icon: "📬" },
-  { label: "Campaign live",             icon: "✅" },
-];
-
-function LaunchSimModal({ stage, done, audienceCount, channel, campaignId, onViewLive, onClose }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-[340px] p-6 flex flex-col items-center gap-4">
-
-        {!done ? (
-          <>
-            <p className="text-[13px] font-bold text-[#1A1410]">Launching campaign…</p>
-            <p className="text-[11px] text-[#9C9691]">
-              Sending to {audienceCount.toLocaleString()} customers via {channel}
-            </p>
-
-            <div className="w-full flex flex-col gap-2 mt-1">
-              {SIM_STAGES.map((s, i) => {
-                const isActive  = i === stage - 1;
-                const isDone    = i < stage;
-                const isPending = i >= stage;
-                return (
-                  <div key={i} className="flex items-center gap-3">
-                    {/* Line connector */}
-                    <div className="flex flex-col items-center" style={{ width: 28 }}>
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[14px] transition-all duration-500 ${
-                        isDone    ? "bg-green-100" :
-                        isActive  ? "bg-[#FFF0EA] ring-2 ring-[#FF6B35] ring-offset-1" :
-                                    "bg-[#F3F0EB]"
-                      }`}>
-                        {isDone ? "✓" : isActive ? (
-                          <span className="w-3 h-3 rounded-full border-2 border-[#FF6B35] border-t-transparent animate-spin inline-block" />
-                        ) : s.icon}
-                      </div>
-                      {i < SIM_STAGES.length - 1 && (
-                        <div className={`w-0.5 h-4 mt-0.5 transition-all duration-500 ${isDone ? "bg-green-300" : "bg-[#E8E4DF]"}`} />
-                      )}
-                    </div>
-                    <span className={`text-[12px] transition-all duration-300 ${
-                      isDone   ? "text-green-700 font-medium" :
-                      isActive ? "text-[#FF6B35] font-semibold" :
-                                 "text-[#9C9691]"
-                    }`}>
-                      {s.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Done state */}
-            <div className="text-5xl animate-bounce">🚀</div>
-            <p className="text-[16px] font-bold text-[#1A1410]">Launch Complete!</p>
-            <p className="text-[12px] text-[#6B6560] text-center">
-              {audienceCount.toLocaleString()} messages queued via {channel}
-              {campaignId && <> · Campaign #{campaignId}</>}
-            </p>
-            <div className="w-full flex flex-col gap-2 mt-1">
-              <button onClick={onViewLive}
-                className="w-full py-2.5 rounded-xl text-[13px] font-semibold bg-[#FF6B35] text-white hover:bg-[#E55A26] transition-colors">
-                View Live Performance →
-              </button>
-              <button onClick={onClose}
-                className="w-full py-2.5 rounded-xl text-[13px] font-medium bg-[#F3F0EB] text-[#6B6560] hover:bg-[#EAE7E2] transition-colors">
-                New Campaign
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Main component
-// ══════════════════════════════════════════════════════════════════════════════
 
 export default function Campaigns({ navigate, preloadedSegment  }) {
   const { campaignAudience, customers, selectCampaignAudience: setCampaignAudience } = useCRM();
 
-  // ── Audience resolution ──────────────────────────────────────────────────
   const audience      = campaignAudience?.length ? campaignAudience : customers;
   const audienceCount = audience.length;
   const isFiltered    = campaignAudience?.length > 0 && campaignAudience.length < customers.length;
@@ -200,7 +40,7 @@ export default function Campaigns({ navigate, preloadedSegment  }) {
     const total = audience.reduce((s, c) => s + (c.monetary ?? c.spend ?? 0), 0);
     return Math.round(total / audience.length);
   })();
-  // Pre-load segment from dashboard Launch → button
+
   useEffect(() => {
     if (!preloadedSegment || !customers.length) return;
     const filtered = customers.filter(
@@ -211,37 +51,29 @@ export default function Campaigns({ navigate, preloadedSegment  }) {
 
   const expectedRevenue = Math.round(avgSpend * audienceCount * 0.31 * 0.30);
 
-  // ── Step state ───────────────────────────────────────────────────────────
-  // Steps: audience → strategy → message → config → launch → live
-  const [step, setStep] = useState("audience"); // audience | strategy | message | config | launched
+  const [step, setStep] = useState("audience"); 
 
-  // ── Strategy state ───────────────────────────────────────────────────────
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [strategyError,   setStrategyError]   = useState("");
   const [strategy, setStrategy] = useState(null);
-  // {objective, reason, offer, channel, bestTime, confidence}
 
-  // Editable strategy fields
   const [editObjective, setEditObjective] = useState("");
   const [editOffer,     setEditOffer]     = useState("");
   const [editChannel,   setEditChannel]   = useState("WhatsApp");
   const [editBestTime,  setEditBestTime]  = useState("");
 
-  // ── Message state ────────────────────────────────────────────────────────
   const [msgLoading,   setMsgLoading]   = useState(false);
   const [msgError,     setMsgError]     = useState("");
   const [message,      setMessage]      = useState("");
   const [tone,         setTone]         = useState("Friendly");
   const [hasGenerated, setHasGenerated] = useState(false);
 
-  // ── Config state ─────────────────────────────────────────────────────────
   const [campaignName, setCampaignName] = useState("");
   const [scheduleDate, setScheduleDate] = useState("");
   const [expiryDate,   setExpiryDate]   = useState("");
   const [hasImage,     setHasImage]     = useState(false);
   const [previewCh,    setPreviewCh]    = useState("WhatsApp");
 
-  // ── Launch state ─────────────────────────────────────────────────────────
   const [launching,   setLaunching]   = useState(false);
   const [launchError, setLaunchError] = useState("");
   const [launchedId,  setLaunchedId]  = useState(null);
@@ -256,8 +88,6 @@ export default function Campaigns({ navigate, preloadedSegment  }) {
     audience.reduce((s, c) => s + (c.frequency ?? c.rfm_f ?? 2), 0) / (audienceCount || 1)
   ).toFixed(1);
 
-
-  // ── Sync editable fields when strategy arrives ───────────────────────────
   useEffect(() => {
     if (!strategy) return;
     setEditObjective(strategy.objective);
@@ -268,7 +98,6 @@ export default function Campaigns({ navigate, preloadedSegment  }) {
     fetchEstimate(editChannel);
   }, [strategy]);
 
-  // This useEffect pre-filters campaign audience from the full segment object:
   useEffect(() => {
     if (!preloadedSegment || !customers.length) return;
     const filtered = customers.filter(
@@ -277,7 +106,6 @@ export default function Campaigns({ navigate, preloadedSegment  }) {
     if (filtered.length) setCampaignAudience(filtered);
   }, [preloadedSegment]);
 
-  // ── Gate: no dataset ─────────────────────────────────────────────────────
   if (!customers.length) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#FAF8F5] flex items-center justify-center">
@@ -298,7 +126,6 @@ export default function Campaigns({ navigate, preloadedSegment  }) {
     );
   }
 
-  // ── Gate: launched ───────────────────────────────────────────────────────
   if (step === "launched") {
     return (
       <main className="flex-1 overflow-y-auto bg-[#FAF8F5] flex items-center justify-center">
@@ -334,8 +161,6 @@ export default function Campaigns({ navigate, preloadedSegment  }) {
       </main>
     );
   }
-
-  // ── Handlers ─────────────────────────────────────────────────────────────
 
   async function handleGenerateStrategy() {
     setStrategyLoading(true);
@@ -425,7 +250,6 @@ export default function Campaigns({ navigate, preloadedSegment  }) {
       setSimStage(i + 1);
     }
 
-    // After animation completes, do the actual API call silently
     try {
       const res = await fetch(`${API_BASE}/api/campaign`, {
         method: "POST",
@@ -456,14 +280,9 @@ export default function Campaigns({ navigate, preloadedSegment  }) {
     setSimDone(true);
   }
 
-  // ── Progress indicator ───────────────────────────────────────────────────
   const STEPS = ["audience", "strategy", "message", "config"];
   const stepIdx = STEPS.indexOf(step);
 
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // Render
-  // ════════════════════════════════════════════════════════════════════════════
 
   return (
     <main className="flex-1 overflow-hidden bg-[#FAF8F5] flex flex-col">

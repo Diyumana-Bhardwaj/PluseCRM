@@ -1,52 +1,19 @@
 import { useState, useEffect, useRef} from "react";
 import OpportunityCard from "./components/OpportunityCard";
+import Spinner from "./components/Spinner";
+import EmptyState from "./components/EmptyState";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
-function EmptyState({ navigate }) {
-  return (
-    <main className="flex-1 overflow-y-auto bg-[#FAF8F5] flex items-center justify-center">
-      <div className="text-center max-w-sm">
-        <div className="w-16 h-16 rounded-full bg-[#FFF0EA] flex items-center justify-center mx-auto mb-4 text-3xl">
-          📂
-        </div>
-        <h2 className="text-[18px] font-bold text-[#1A1410] mb-2">No data yet</h2>
-        <p className="text-[13px] text-[#6B6560] mb-6 leading-relaxed">
-          Upload your customer CSV to unlock AI-powered opportunities, segment insights, and campaign recommendations.
-        </p>
-        <button
-          onClick={() => navigate("Customers")}
-          className="px-5 py-2.5 rounded-xl text-[13px] font-semibold bg-[#FF6B35] text-white hover:bg-[#E55A26] transition-colors">
-          Upload Customer Data →
-        </button>
-      </div>
-    </main>
-  );
-}
-
-function Spinner() {
-  return (
-    <div className="flex items-center justify-center py-20">
-      <div className="flex flex-col items-center gap-3">
-        <span className="w-8 h-8 rounded-full border-2 border-black/10 border-t-[#FF6B35] animate-spin" />
-        <p className="text-[12px] text-[#9C9691]">AI is analysing your segments…</p>
-      </div>
-    </div>
-  );
-}
 
 export default function DashboardHome({ hasDataset, segments, customers, navigate, insights, setInsights, fetchedForRef }) {
   const [loadingInsights, setLoading]   = useState(false);
   const [insightsError, setError]       = useState("");
 
-
-  // REPLACE the existing useEffect with:
   useEffect(() => {
     if (!segments?.length) return;
 
     const fingerprint = segments.map(s => s.label).join(",") + "|" + (customers?.length ?? 0);
 
-    // Skip if we already fetched for this exact dataset
     if (fetchedForRef.current === fingerprint) return;
 
     async function fetchInsights() {
