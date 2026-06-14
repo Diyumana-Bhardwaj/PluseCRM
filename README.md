@@ -79,7 +79,7 @@ Campaign Analytics
 |---|---|
 | Frontend | React 18, Vite, Tailwind CSS |
 | Backend | FastAPI (Python) |
-| Database | MongoDB |
+| Database | Comma Separated Values(CSV) |
 | ML Pipeline | scikit-learn (KMeans), pandas (RFM) |
 | LLM | Gemini 2.0 Flash via OpenRouter |
 | Channel Simulation | Custom stubbed service with async webhooks |
