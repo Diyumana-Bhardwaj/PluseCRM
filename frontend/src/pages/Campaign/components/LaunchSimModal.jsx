@@ -1,3 +1,5 @@
+import {SIM_STAGES, TONES} from "../dummyData/CampaignData";
+
 export default function LaunchSimModal({ stage, done, audienceCount, channel, campaignId, onViewLive, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
