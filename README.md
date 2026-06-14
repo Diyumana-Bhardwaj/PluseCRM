@@ -1,6 +1,6 @@
 # PulseCRM — AI-Native Customer Intelligence Platform
 
-> **Live Product →** [https://pluse-crm.vercel.app](https://pulsecrm.vercel.app) 
+> **Live Product →** [https://pluse-crm.vercel.app](https://pluse-crm.vercel.app/)
 > **Demo credentials:** `demo@pulsecrm.in` / `pulse123`
 
 ---
