@@ -57,13 +57,32 @@ async def _llm(user_prompt: str, max_tokens: int = 512) -> str:
 
 def _parse_json_block(text: str) -> dict:
     clean = text.strip()
-    if clean.startswith("```"):
-        lines = clean.splitlines()
-        clean = "\n".join(lines[1:-1]) if len(lines) > 2 else clean
+    # Strip markdown code fences
+    if "```" in clean:
+        # Extract content between first ``` and last ```
+        parts = clean.split("```")
+        # Try each part between fences
+        for part in parts[1::2]:  # odd indices = inside fences
+            part = part.strip()
+            if part.startswith("json"):
+                part = part[4:].strip()
+            try:
+                return json.loads(part)
+            except json.JSONDecodeError:
+                continue
+    # Try raw parse
     try:
         return json.loads(clean)
     except json.JSONDecodeError:
-        return {}
+        # Last resort: find first { and last }
+        start = clean.find("{")
+        end   = clean.rfind("}") + 1
+        if start != -1 and end > start:
+            try:
+                return json.loads(clean[start:end])
+            except json.JSONDecodeError:
+                pass
+    return {}
 
 
 _CHANNEL_DELIVERY: dict[str, float] = {
@@ -407,7 +426,7 @@ async def dashboard_insights(req: DashboardInsightsRequest):
 
 {segments_text}
 
-Return ONLY a JSON object with exactly this shape:
+Return ONLY a JSON object with exactly this shape — no markdown, no backticks, no explanation:
 {{
   "opportunities": [
     {{
@@ -435,16 +454,22 @@ Return ONLY a JSON object with exactly this shape:
 }}
 
 Rules:
-- Generate exactly 3 opportunities (pick the 3 highest-impact segments)
-- Generate exactly 6 insights covering: revenue concentration, churn risk, loyalty, order frequency, channel mix, and one surprise finding
+- Generate exactly 3 opportunities (pick the 3 highest-impact segments by avg_spend)
+- Generate exactly 6 insights
 - Use actual numbers from the segment data
-- Sound like a sharp Zomato growth analyst, not a consultant
-- No markdown, no explanation, return only the JSON"""
+- No markdown, no backticks, no explanation, return only raw JSON"""
 
     try:
-        parsed = _parse_json_block(await _llm(prompt, max_tokens=1200))
+        raw = await _llm(prompt, max_tokens=1500)
+        logger.info("Dashboard insights raw response: %s", raw[:200])  # log first 200 chars
+        parsed = _parse_json_block(raw)
     except Exception as e:
         logger.error("Dashboard insights error: %s", repr(e))
         raise HTTPException(status_code=502, detail="AI generation failed")
+
+    # Validate structure before returning
+    if not parsed.get("opportunities") or not parsed.get("insights"):
+        logger.error("Bad insights structure: %s", parsed)
+        raise HTTPException(status_code=502, detail=f"AI returned unexpected format: {str(parsed)[:200]}")
 
     return parsed

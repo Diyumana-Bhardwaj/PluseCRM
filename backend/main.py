@@ -1,11 +1,3 @@
-"""
-main.py — PulseCRM FastAPI backend.
-
-Endpoints:
-  POST /api/analyze   Upload a CSV → returns processed customers + segments
-  GET  /api/health    Health check for deployment platforms
-"""
-
 import asyncio
 import os
 from dotenv import load_dotenv
@@ -43,8 +35,6 @@ app.add_middleware(
 )
 app.include_router(campaign_router, prefix="/api")
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
 def _derive_status(customer: dict) -> str:
     r = customer.get("rfm_r", 3)
     f = customer.get("rfm_f", 3)
@@ -62,13 +52,8 @@ def _derive_status(customer: dict) -> str:
 
 
 def _process_sync(file_bytes: bytes, filename: str) -> dict:
-    """Run the full parse → RFM → cluster → persona → analytics pipeline."""
     customers = parse_csv(file_bytes, filename)
-
-    # run_pipeline handles: score_rfm → kmeans → gemini → personas → analytics
     result = run_pipeline(customers)
-
-    # Attach status (derived from RFM scores added by the pipeline)
     for c in result["customers"]:
         c["status"] = _derive_status(c)
 
