@@ -181,8 +181,8 @@ function LaunchSimModal({ stage, done, audienceCount, channel, campaignId, onVie
 // Main component
 // ══════════════════════════════════════════════════════════════════════════════
 
-export default function Campaigns({ navigate }) {
-  const { campaignAudience, customers } = useCRM();
+export default function Campaigns({ navigate, preloadedSegment  }) {
+  const { campaignAudience, customers, selectCampaignAudience: setCampaignAudience } = useCRM();
 
   // ── Audience resolution ──────────────────────────────────────────────────
   const audience      = campaignAudience?.length ? campaignAudience : customers;
@@ -200,6 +200,14 @@ export default function Campaigns({ navigate }) {
     const total = audience.reduce((s, c) => s + (c.monetary ?? c.spend ?? 0), 0);
     return Math.round(total / audience.length);
   })();
+  // Pre-load segment from dashboard Launch → button
+  useEffect(() => {
+    if (!preloadedSegment || !customers.length) return;
+    const filtered = customers.filter(
+      c => c.cluster_id === preloadedSegment.cluster_id
+    );
+    if (filtered.length) setCampaignAudience(filtered);
+  }, [preloadedSegment]);
 
   const expectedRevenue = Math.round(avgSpend * audienceCount * 0.31 * 0.30);
 
@@ -259,6 +267,15 @@ export default function Campaigns({ navigate }) {
     setPreviewCh(strategy.channel);
     fetchEstimate(editChannel);
   }, [strategy]);
+
+  // This useEffect pre-filters campaign audience from the full segment object:
+  useEffect(() => {
+    if (!preloadedSegment || !customers.length) return;
+    const filtered = customers.filter(
+      c => c.cluster_id === preloadedSegment.cluster_id
+    );
+    if (filtered.length) setCampaignAudience(filtered);
+  }, [preloadedSegment]);
 
   // ── Gate: no dataset ─────────────────────────────────────────────────────
   if (!customers.length) {
@@ -840,7 +857,11 @@ export default function Campaigns({ navigate }) {
           audienceCount={audienceCount}
           channel={editChannel}
           campaignId={launchedId}
-          onViewLive={() => navigate?.("Live Performance")}
+          onViewLive={() => {
+            setSimStage(-1);
+            setSimDone(false);
+            navigate?.("Live Performance")}
+          }
           onClose={() => {
             setSimStage(-1);
             setSimDone(false);

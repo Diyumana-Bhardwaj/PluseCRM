@@ -394,3 +394,65 @@ async def get_campaign(campaign_id: int):
         if c["campaignId"] == campaign_id:
             return c
     raise HTTPException(status_code=404, detail="Campaign not found.")
+
+class DashboardInsightsRequest(BaseModel):
+    segments: list[dict]
+    total_customers: int
+
+@router.post("/dashboard-insights")
+async def dashboard_insights(req: DashboardInsightsRequest):
+    segments_text = "\n".join([
+        f"- {s['label']} ({s['customer_count']} customers): "
+        f"avg spend ₹{s['avg_spend']:.0f}, "
+        f"avg orders {s['avg_orders']:.1f}, "
+        f"recency {s['avg_recency_days']:.0f} days, "
+        f"recommended channel {s['recommended_channel']}, "
+        f"offer: {s['recommended_offer']}"
+        for s in req.segments
+    ])
+
+    prompt = f"""You are a senior CRM analyst at Zomato with {req.total_customers} customers across these segments:
+
+{segments_text}
+
+Return ONLY a JSON object with exactly this shape:
+{{
+  "opportunities": [
+    {{
+      "title": "<segment name + action>",
+      "subtitle": "<one line describing the opportunity>",
+      "emoji": "<single emoji>",
+      "conf": "<number>%",
+      "channel": "<channel> · <best time>",
+      "quote": "<one insightful sentence about this segment>",
+      "stats": [
+        {{"val": "<value>", "lbl": "<label>"}},
+        {{"val": "<value>", "lbl": "<label>"}},
+        {{"val": "<value>", "lbl": "<label>"}}
+      ],
+      "segment_label": "<exact label from segments above>"
+    }}
+  ],
+  "insights": [
+    {{
+      "icon": "<emoji>",
+      "title": "<short title>",
+      "body": "<2 sentence insight based on the actual data>"
+    }}
+  ]
+}}
+
+Rules:
+- Generate exactly 3 opportunities (pick the 3 highest-impact segments)
+- Generate exactly 6 insights covering: revenue concentration, churn risk, loyalty, order frequency, channel mix, and one surprise finding
+- Use actual numbers from the segment data
+- Sound like a sharp Zomato growth analyst, not a consultant
+- No markdown, no explanation, return only the JSON"""
+
+    try:
+        parsed = _parse_json_block(await _llm(prompt, max_tokens=1200))
+    except Exception as e:
+        logger.error("Dashboard insights error: %s", repr(e))
+        raise HTTPException(status_code=502, detail="AI generation failed")
+
+    return parsed

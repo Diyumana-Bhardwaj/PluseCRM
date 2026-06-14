@@ -1,50 +1,61 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useCRM } from "../context/CRMContext";
 import Customers from "./Customers/Customers";
 import Campaign from "./Campaign/Campaign";
-import CampaignPerformance from './Performance';
-import Analytics from './Analysis';
+import CampaignPerformance from "./Performance";
+import Analytics from "./Analysis";
 import { NAV_ITEMS, PAST_CAMPAIGNS } from "./Dashboard/constants/dashboardData";
 import NavIcon from "./Dashboard/components/NavIcon";
 import DashboardHome from "./Dashboard/DashboardHome";
 import LiveFeed from "./Dashboard/components/LiveFeed";
 import ComingSoon from "./Dashboard/components/ComingSoon";
 
-
-const APP_STATES = {
-  NO_DATA:         { hasDataset: false, hasCampaign: false },
-  DATA_READY:      { hasDataset: true,  hasCampaign: false },
-  CAMPAIGN_LIVE:   { hasDataset: true,  hasCampaign: true  },
-};
-
-const CURRENT_STATE = APP_STATES.CAMPAIGN_LIVE;
-
 function isNavEnabled(label, { hasDataset, hasCampaign }) {
   if (label === "Dashboard" || label === "Customers") return true;
-  if (label === "Campaigns")   return hasDataset;
-  if (label === "Live Performance")   return hasCampaign;
-  if (label === "Analytics") return hasCampaign;
+  if (label === "Campaigns")        return hasDataset;
+  if (label === "Live Performance") return hasDataset;
+  if (label === "Analytics")        return hasDataset;
   return true;
 }
 
 const PAGE_REGISTRY = {
-  Dashboard:     { component: null,      showFeed: true  },
-  Customers:     { component: Customers, showFeed: false },
-  Campaigns:     { component: Campaign,  showFeed: false },
-  "Live Performance":     { component: CampaignPerformance, showFeed: false },
-  Analytics: { component: Analytics,      showFeed: false },
+  Dashboard:          { component: null,                showFeed: true  },
+  Customers:          { component: Customers,           showFeed: false },
+  Campaigns:          { component: Campaign,            showFeed: false },
+  "Live Performance": { component: CampaignPerformance, showFeed: false },
+  Analytics:          { component: Analytics,           showFeed: false },
 };
 
 export default function Dashboard() {
-  const [activeNav, setActiveNav] = useState("Dashboard");
-  // selectedSegment is passed from DashboardHome → Customers when "View Segment" is clicked
-  const [selectedSegment, setSelectedSegment] = useState(null);
+  const { customers, segments, selectSegment } = useCRM();
 
-  const appState = CURRENT_STATE;
+  const [activeNav,       setActiveNav]       = useState("Dashboard");
+  const [campaignSegment, setCampaignSegment] = useState(null);
+  const [hasCampaign, setHasCampaign] = useState(false);
+  const [dashboardInsights, setDashboardInsights] = useState(null);
+  const insightsFetchedFor = useRef(null);
+
+  const appState = {
+    hasDataset:  customers.length > 0,
+    hasCampaign,
+  };
 
   function navigate(page, opts = {}) {
-    if (!isNavEnabled(page, appState)) return; // guard disabled pages
-    if (opts.segment) setSelectedSegment(opts.segment);
-    else setSelectedSegment(null);
+    if (!isNavEnabled(page, appState)) return;
+
+    if (page === "Customers" && opts.segment) {
+      // opts.segment is a label string here
+      selectSegment(opts.segment);   // goes into context via selectSegment
+      setCampaignSegment(null);
+    } else if (page === "Campaigns" && opts.segment) {
+      // opts.segment is a full segment object here
+      setCampaignSegment(opts.segment);
+      selectSegment(null);
+    } else {
+      selectSegment(null);
+      setCampaignSegment(null);
+    }
+
     setActiveNav(page);
   }
 
@@ -56,7 +67,12 @@ export default function Dashboard() {
       return (
         <DashboardHome
           hasDataset={appState.hasDataset}
+          segments={segments}
+          customers={customers}
           navigate={navigate}
+          insights={dashboardInsights}
+          setInsights={setDashboardInsights}
+          fetchedForRef={insightsFetchedFor}
         />
       );
     }
@@ -65,7 +81,15 @@ export default function Dashboard() {
       return (
         <Customers
           navigate={navigate}
-          initialSegment={selectedSegment}
+        />
+      );
+    }
+
+    if (activeNav === "Campaigns") {
+      return (
+        <Campaign
+          navigate={navigate}
+          preloadedSegment={campaignSegment}
         />
       );
     }
@@ -78,7 +102,7 @@ export default function Dashboard() {
     return <ComingSoon label={activeNav} />;
   }
 
-  const showFeed = PAGE_REGISTRY[activeNav]?.showFeed && appState.hasCampaign;
+  const showFeed = PAGE_REGISTRY[activeNav]?.showFeed && appState.hasDataset;
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#FAF8F5] text-[#1A1410] font-sans">
@@ -103,7 +127,7 @@ export default function Dashboard() {
         <div className="px-2 pt-3 pb-1 shrink-0">
           <p className="text-[10px] font-semibold text-[#9C9691] tracking-[0.8px] uppercase px-2 pb-1.5">Menu</p>
           {NAV_ITEMS.map((item) => {
-            const enabled = isNavEnabled(item.label, appState);
+            const enabled  = isNavEnabled(item.label, appState);
             const isActive = activeNav === item.label;
             return (
               <button
@@ -121,7 +145,6 @@ export default function Dashboard() {
               >
                 <NavIcon d={item.icon} />
                 <span className="flex-1 text-left">{item.label}</span>
-                {/* Lock icon for disabled pages */}
                 {!enabled && (
                   <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -132,7 +155,7 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* Past Campaigns — only show when there's data */}
+        {/* Past Campaigns */}
         {appState.hasDataset && (
           <div className="px-2 pt-2 flex-1 overflow-y-auto">
             <p className="text-[10px] font-semibold text-[#9C9691] tracking-[0.8px] uppercase px-2 pb-1.5">Past Campaigns</p>
