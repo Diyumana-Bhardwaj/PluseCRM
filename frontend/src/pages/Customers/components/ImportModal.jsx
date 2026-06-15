@@ -11,7 +11,7 @@ function Icon({ d, className = "w-4 h-4" }) {
   );
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export default function ImportModal({ onClose }) {
   const { setCustomers } = useCRM();
